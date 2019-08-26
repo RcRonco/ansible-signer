@@ -8,33 +8,31 @@ DEFAULT_FILTER = '^([a-zA-Z0-9]|-|_).*\.(yaml|yml|exe|python|ps1|json|conf|j2)+$
 
 
 class AnsibleSigner:
-    def __init__(self, private_key_path="", public_key_path=""):
-        pub_key = None
+    def __init__(self, private_key_path=""):
         priv_key = None
         if os.path.exists(private_key_path):
             with open(private_key_path, 'rb') as pk_fd:
                 priv_key = rsa.PrivateKey.load_pkcs1(pk_fd.read())
-        if os.path.exists(public_key_path):
-            with open(public_key_path, 'rb') as pk_fd:
-                pub_key = rsa.PublicKey.load_pkcs1(pk_fd.read())
-        if priv_key is None or pub_key is None:
+        if priv_key is None:
             (self.pub_key, self.priv_key) = rsa.newkeys(2048)
         else:
-            self.pub_key = pub_key
             self.priv_key = priv_key
 
     def sign_data(self, data="", hash_alg='SHA-256'):
         encoded_data = data.encode()
         return rsa.sign(encoded_data, self.priv_key, hash_alg)
 
-    def gen_ansible_role_sign(self, role_path, role_sign_path='', filter=DEFAULT_FILTER):
-        signed_files = {"files": {}}
+    def gen_ansible_role_sign(self, role_path, role_sign_path='', file_filter=DEFAULT_FILTER):
+        signed_files = {
+            "files": {},
+            "filter": file_filter
+        }
         if role_sign_path == '':
             role_sign_path = os.path.join(role_path, 'sign.yaml')
         for root, dirs, files in os.walk(role_path):
             for file in files:
                 full_path = os.path.join(root, file)
-                if not re.match(filter, file):
+                if not re.match(file_filter, file):
                     print('Skipping hidden file: {}'.format(full_path))
                     continue
                 signed_files["files"][full_path] = \
