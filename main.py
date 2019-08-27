@@ -1,4 +1,8 @@
-from ansible_sign.sign import AnsibleSigner
+#from ansible_sign.sign import AnsibleSigner
 
-signer = AnsibleSigner()
-signer.gen_ansible_role_sign('./nginx-role')
+#signer = AnsibleSigner('key.pem')
+#signer.sign('./nginx-role')
+
+from ansible_sign.verify import AnsibleSignVerifier
+verifier = AnsibleSignVerifier('public.pem')
+verifier.verify('./nginx-role')
