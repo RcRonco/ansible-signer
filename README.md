@@ -22,3 +22,4 @@ sign.yaml: JncDteY/mvcOcHtIod6IzqXbMcrkxkl34A4Ciwn/ZkYvF+oPDIR+IrFaZ1USRO55RmLzc
 - [X] Write AnsibleSigner
 - [ ] Write AnsibleVerifier
 - [ ] Extend Ansible's ansible-playbook cli to check roles before running plays
+- [ ] Add support for Notary and Hashicorp Vault
