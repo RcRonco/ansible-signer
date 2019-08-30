@@ -3,10 +3,11 @@ import re
 import rsa
 import yaml
 import base64
-import ansible_sign.helper as sign_helper
+from ansible_sign.ansible_sign import Signer, DEFAULT_FILTER
+from ansible_sign.role_scanner import RoleScanner
 
 
-class AnsibleSigner:
+class AnsibleSigner(Signer):
     def __init__(self, private_key_path=""):
         priv_key = None
         
@@ -21,7 +22,7 @@ class AnsibleSigner:
         else:
             self.priv_key = priv_key
 
-    def sign(self, role_path, role_sign_path='', file_filter=sign_helper.DEFAULT_FILTER):
+    def sign(self, role_path, role_sign_path='', file_filter=DEFAULT_FILTER):
         """
         Generate sign.yaml file for given role
         :param role_path: The role path
@@ -82,7 +83,7 @@ class AnsibleSigner:
         encoded_data = data.encode()
         return rsa.sign(encoded_data, self.priv_key, hash_alg)
 
-    def _sign_role(self,role_path, file_filter=sign_helper.DEFAULT_FILTER):
+    def _sign_role(self,role_path, file_filter=DEFAULT_FILTER):
         """
         Scan role for files based on filter and sign all files
         :param role_path: Role location
@@ -91,15 +92,9 @@ class AnsibleSigner:
                         Values: files signature
         """
         role_signs = {}
-        # Scan role folders
-        for root, dirs, files in os.walk(role_path):
-            for file in files:
-                full_path = os.path.join(root, file)
-                # Check if file name is matching the filter
-                if not re.match(file_filter, file):
-                    print('Skipping hidden file: {}'.format(full_path))
-                    continue
-                # Sign current file
-                curr_sign = self._sign_data(open(full_path).read())
-                role_signs[full_path] = base64.b64encode(curr_sign).decode('utf-8')
+        scanner = RoleScanner()
+        for f in scanner.get_files(role_path):
+            curr_sign = self._sign_data(open(f).read())
+            role_signs[f] = base64.b64encode(curr_sign).decode('utf-8')
+
         return role_signs

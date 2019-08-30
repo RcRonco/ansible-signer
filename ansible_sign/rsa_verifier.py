@@ -2,10 +2,10 @@ import os
 import rsa
 import yaml
 import base64
-import ansible_sign.helper as sign_helper
+from ansible_sign.ansible_sign import Verifier
 
 
-class AnsibleSignVerifier:
+class AnsibleSignVerifier(Verifier):
     def __init__(self, public_key_path=""):
         self.pub_key = None
         # Load public key
