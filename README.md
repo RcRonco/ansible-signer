@@ -1,4 +1,5 @@
 # ansible-signer
+#### The Project still WIP
 An Extension to Ansible with the ability to sign and verify at playbook run roles integrity 
 
 ## Description
@@ -20,6 +21,7 @@ sign.yaml: JncDteY/mvcOcHtIod6IzqXbMcrkxkl34A4Ciwn/ZkYvF+oPDIR+IrFaZ1USRO55RmLzc
 
 # Roadmap
 - [X] Write AnsibleSigner
-- [ ] Write AnsibleVerifier
+- [X] Write AnsibleVerifier
 - [ ] Extend Ansible's ansible-playbook cli to check roles before running plays
-- [ ] Add support for Notary and Hashicorp Vault
+- [ ] Add support for Hashicorp Vault
+- [ ] Add support for Notary
