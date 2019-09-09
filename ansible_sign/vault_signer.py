@@ -1,32 +1,25 @@
 import os
-import re
-import rsa
+import hvac
 import yaml
 import base64
 from ansible_sign.ansible_sign import Signer, DEFAULT_FILTER
 from ansible_sign.role_scanner import RoleScanner
 
 
-class RSASigner(Signer):
-    def __init__(self, private_key_path=""):
-        priv_key = None
-        
-        # Load private key
-        if os.path.exists(private_key_path):
-            with open(private_key_path, 'rb') as pk_fd:
-                priv_key = rsa.PrivateKey.load_pkcs1(pk_fd.read())
-                
-        # Generate new RSA key pair
-        if priv_key is None:
-            (self.pub_key, self.priv_key) = rsa.newkeys(2048)
-        else:
-            self.priv_key = priv_key
+class VaultSigner(Signer):
+    def __init__(self, address: str, token: str, key_name: str, mount_path: str = 'transit', verify: bool = True):
+        self.vault_addr = address
+        self.token = token
+        self.transit_key = key_name
+        self.verify = verify
+        self.transit_mount = mount_path
+        self.client = hvac.Client(self.vault_addr, self.token, verify=self.verify)
 
     @staticmethod
     def get_name():
-        return "RSASigner"
+        return "VaultSigner"
 
-    def sign(self, role_path, role_sign_path='', file_filter=DEFAULT_FILTER):
+    def sign(self, role_path: str, role_sign_path: str = '', file_filter: str = DEFAULT_FILTER) -> bool:
         """
         Generate sign.yaml file for given role
         :param role_path: The role path
@@ -42,8 +35,8 @@ class RSASigner(Signer):
         }
 
         # Check private key is loaded
-        if self.priv_key is None:
-            print('Private key is not loaded')
+        if not self.client.is_authenticated():
+            print('Failed to authenticate to vault server')
             return False
 
         # Check role exists and is directory
@@ -58,14 +51,17 @@ class RSASigner(Signer):
         signed_files["files"] = self._sign_role(role_path, file_filter)
 
         # Generate the sign data
-        signed_data = yaml.safe_dump(signed_files,
-                                     encoding='utf-8',
-                                     allow_unicode=True,
-                                     default_flow_style=False).decode('utf-8')
+        signed_data = base64.b64encode(
+            yaml.safe_dump(
+                signed_files,
+                encoding='utf-8',
+                allow_unicode=True,
+                default_flow_style=False
+            )
+        )
 
         # Sign the sign.yaml and insert it to him
-        signed_files["sign.yaml"] = \
-            base64.b64encode(self._sign_data(signed_data)).decode('utf-8')
+        signed_files["sign.yaml"] = self._sign_data(signed_data)
 
         # Generate final sign.yaml
         signed_data = yaml.safe_dump(signed_files,
@@ -78,17 +74,22 @@ class RSASigner(Signer):
             ofd.write(signed_data)
         return True
 
-    def _sign_data(self, data="", hash_alg='SHA-256'):
+    def _sign_data(self, data: bytes = "", hash_alg: str = 'SHA-256') -> str:
         """
         Sign given string of data
-        :param data: data to sign
+        :param data: base64 data to sign
         :param hash_alg: Hashing algorithm
         :return: Signature
         """
-        encoded_data = data.encode()
-        return rsa.sign(encoded_data, self.priv_key, hash_alg)
+        sign_data_response = self.client.transit_sign_data(
+            self.transit_key,
+            data,
+            hash_algorithm=hash_alg,
+            mount_point=self.transit_mount
+        )
+        return sign_data_response['data']['signature']
 
-    def _sign_role(self, role_path, file_filter=DEFAULT_FILTER):
+    def _sign_role(self, role_path: str, file_filter: str = DEFAULT_FILTER) -> dict:
         """
         Scan role for files based on filter and sign all files
         :param role_path: Role location
@@ -99,7 +100,6 @@ class RSASigner(Signer):
         role_signs = {}
         scanner = RoleScanner(file_filter)
         for f in scanner.get_files(role_path):
-            curr_sign = self._sign_data(open(f).read())
-            role_signs[f] = base64.b64encode(curr_sign).decode('utf-8')
+            role_signs[f] = self._sign_data(base64.b64encode(open(f).read()))
 
         return role_signs

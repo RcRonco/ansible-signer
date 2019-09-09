@@ -1,18 +1,19 @@
 import os
-import rsa
+import hvac
 import yaml
 import base64
 from ansible_sign.ansible_sign import Verifier
-from ansible_sign.rsa_signer import RSASigner
+from ansible_sign.vault_signer import VaultSigner
 
 
-class RSAVerifier(Verifier):
-    def __init__(self, public_key_path=""):
-        self.pub_key = None
-        # Load public key
-        if os.path.exists(public_key_path):
-            with open(public_key_path, 'rb') as pk_fd:
-                self.pub_key = rsa.PublicKey.load_pkcs1_openssl_pem(pk_fd.read())
+class VaultVerifier(Verifier):
+    def __init__(self, address: str, token: str, key_name: str, mount_path: str = 'transit', verify: bool = True):
+        self.vault_addr = address
+        self.token = token
+        self.transit_key = key_name
+        self.verify = verify
+        self.transit_mount = mount_path
+        self.client = hvac.Client(self.vault_addr, self.token, verify=self.verify)
 
     def verify(self, role_path, role_sign_path=''):
         """
@@ -24,8 +25,8 @@ class RSAVerifier(Verifier):
         """
         invalid_files = []
         # Check Public key is loaded
-        if self.pub_key is None:
-            print('Public key is not loaded')
+        if not self.client.is_authenticated():
+            print('Failed to authenticate to vault server')
             return False, invalid_files
 
         # Check that the role exists and is directory
@@ -41,7 +42,7 @@ class RSAVerifier(Verifier):
 
         # Load sign yaml and verify backend
         signed_files = yaml.load(open(role_sign_path).read())
-        if signed_files["sign_backend"] != RSASigner.get_name():
+        if signed_files["sign_backend"] != VaultSigner.get_name():
             return False, ['sign.yaml']
 
         # Verify sign.yaml signature

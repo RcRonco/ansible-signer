@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
-DEFAULT_FILTER = '^([a-zA-Z0-9]|-|_).*\.(yaml|yml|exe|python|ps1|json|conf|j2)+$'
+SIMPLE_FILTER = '^([a-zA-Z0-9]|-|_).*\.(yaml|yml|exe|python|ps1|json|conf|j2)+$'
+DEFAULT_FILTER = '.*'
 
 
 class Signer(ABC):
